@@ -1,4 +1,9 @@
+import { useEffect, useState } from "react";
 import CodeBlock from "./components/code-block";
+import {
+  getExtensionEnabled,
+  setExtensionEnabled,
+} from "./extension-state";
 import { getPackageVersion } from "./utils/get-package-version";
 
 const version = getPackageVersion();
@@ -13,7 +18,42 @@ const shortcutRows = [
   { key: "Esc", label: "Clear measurements and guides" },
 ];
 
+function reloadCurrentTab() {
+  const chromeApi = (
+    globalThis as typeof globalThis & {
+      chrome?: { tabs?: { reload: (tabId?: number) => void } };
+    }
+  ).chrome;
+
+  chromeApi?.tabs?.reload();
+}
+
 export function App() {
+  const [enabled, setEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getExtensionEnabled().then((value) => {
+      if (cancelled) return;
+      setEnabled(value);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleEnabled = async () => {
+    const nextEnabled = !enabled;
+    setLoading(true);
+    setEnabled(nextEnabled);
+    await setExtensionEnabled(nextEnabled);
+    reloadCurrentTab();
+  };
+
   return (
     <main className="flex min-h-screen flex-col gap-5 px-4 py-4">
       <div className="flex items-start gap-3">
@@ -34,6 +74,46 @@ export function App() {
         </div>
       </div>
 
+      <section className="flex flex-col gap-3 rounded-[10px] border border-border bg-white p-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.04em] text-muted">
+              Extension
+            </p>
+            <p className="text-sm text-muted">
+              {enabled
+                ? "Enabled on supported localhost pages."
+                : "Disabled. Nothing is injected into the page."}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Toggle Measure Local"
+            disabled={loading}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition ${
+              enabled
+                ? "border-[#0d99ff] bg-[#0d99ff]"
+                : "border-border bg-[#d9d9d9]"
+            } ${loading ? "cursor-wait opacity-70" : "cursor-pointer"}`}
+            onClick={() => {
+              void toggleEnabled();
+            }}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-white transition ${
+                enabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        <p className="text-sm leading-6 text-muted">
+          Turning it off removes the toolbar and overlays from the page and
+          clears all persisted measurer state for that site.
+        </p>
+      </section>
+
       <section className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-[0.04em] text-muted">
           Runs On
@@ -49,7 +129,7 @@ https://localhost/*`}</CodeBlock>
           Behavior
         </p>
         <p className="text-sm leading-6 text-muted">
-          The content script mounts automatically on supported pages and keeps
+          When enabled, the content script mounts on supported pages and keeps
           your measurements in <code className="code">localStorage</code> so
           guides survive a reload.
         </p>
@@ -62,7 +142,7 @@ https://localhost/*`}</CodeBlock>
         <div className="flex flex-col overflow-hidden rounded-[8px] border border-border bg-white">
           <div className="border-b border-border px-3 py-2 text-sm text-muted">
             Floating controls remember their position and collapsed state across
-            reloads.
+            reloads while the extension is enabled.
           </div>
           <div className="px-3 py-2 text-sm text-muted">
             Double-click the floating control to reset it back to the default

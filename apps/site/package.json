@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build && vite build --config vite.content.config.ts",
+    "build": "corepack pnpm --dir ../.. build:pkg && vite build && vite build --config vite.content.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {

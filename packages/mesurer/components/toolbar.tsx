@@ -400,7 +400,7 @@ function ToolbarComponent(
     return (
       <div
         ref={ref}
-        className="pointer-events-auto absolute z-[90]"
+        className="pointer-events-auto absolute z-[90] rounded-[12px] bg-[#fff] p-1 outline outline-transparent shadow-[0px_0px_.5px_rgba(0,0,0,.18),0px_3px_8px_rgba(0,0,0,.1),0px_1px_3px_rgba(0,0,0,.1)]"
         style={{ left: position.x, top: position.y }}
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
@@ -440,9 +440,21 @@ function ToolbarComponent(
         resetPosition();
       }}
     >
-      <div className="flex size-8 items-center justify-center rounded-[8px] bg-black/4">
-        <RulerIcon size={18} className="text-[#0d99ff]" />
-      </div>
+      <ToolbarButton
+        id="hide-toolbar"
+        active={false}
+        label="Hide controls"
+        onClick={() => {
+          setGuideMenuOpen(false);
+          onHide();
+        }}
+        tooltipVisible={visibleTooltipId === "hide-toolbar"}
+        tooltipSide={tooltipSide}
+        onTooltipEnter={onTooltipEnter}
+        onTooltipLeave={onTooltipLeave}
+      >
+        <MinusIcon size={12} />
+      </ToolbarButton>
       <ToolbarButton
         id="select"
         active={toolMode === "select"}
@@ -599,21 +611,6 @@ function ToolbarComponent(
           </div>
         ) : null}
       </div>
-      <ToolbarButton
-        id="hide-toolbar"
-        active={false}
-        label="Hide controls"
-        onClick={() => {
-          setGuideMenuOpen(false);
-          onHide();
-        }}
-        tooltipVisible={visibleTooltipId === "hide-toolbar"}
-        tooltipSide={tooltipSide}
-        onTooltipEnter={onTooltipEnter}
-        onTooltipLeave={onTooltipLeave}
-      >
-        <MinusIcon size={12} />
-      </ToolbarButton>
     </div>
   );
 }
