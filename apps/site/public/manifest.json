@@ -7,6 +7,7 @@
     "default_title": "Measure Local",
     "default_popup": "index.html"
   },
+  "permissions": ["storage", "tabs"],
   "content_scripts": [
     {
       "matches": [
