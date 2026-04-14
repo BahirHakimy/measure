@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Measure Local",
+  "description": "Inspect spacing and alignment on localhost. Based on mesurer by Julien Thibeaut (ibelick).",
+  "version": "0.0.3",
+  "action": {
+    "default_title": "Measure Local",
+    "default_popup": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://0.0.0.0/*",
+        "https://localhost/*",
+        "https://127.0.0.1/*",
+        "https://0.0.0.0/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

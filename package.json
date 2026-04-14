@@ -1,0 +1,22 @@
+{
+  "name": "mesurer",
+  "description": "Measure and align everything on localhost.",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "corepack pnpm --filter ./packages/mesurer build && corepack pnpm --filter ./apps/site build",
+    "build:extension": "corepack pnpm --filter ./apps/site build",
+    "build:site": "corepack pnpm --filter ./apps/site build",
+    "build:pkg": "corepack pnpm --filter ./packages/mesurer build",
+    "dev": "corepack pnpm -r dev",
+    "dev:extension": "corepack pnpm --filter ./apps/site dev",
+    "dev:site": "corepack pnpm --filter ./apps/site dev",
+    "dev:pkg": "corepack pnpm --filter ./packages/mesurer dev",
+    "lint": "corepack pnpm -r lint",
+    "test": "corepack pnpm -r test"
+  }
+}

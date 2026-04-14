@@ -1,0 +1,62 @@
+{
+  "name": "mesurer",
+  "version": "0.0.3",
+  "description": "Measure and align everything on localhost.",
+  "license": "MIT",
+  "author": "Julien Thibeaut",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "dist/styles.css",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": ["*.css"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://mesurer.ibelick.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ibelick/mesurer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ibelick/mesurer/issues"
+  },
+  "scripts": {
+    "build": "corepack pnpm exec tailwindcss -i styles.css -o styles.generated.css && node scripts/generate-styles.mjs && tsup && corepack pnpm exec tailwindcss -i styles.css -o dist/styles.css",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.2.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "keywords": [
+    "measurement",
+    "alignment"
+  ]
+}
