@@ -42,7 +42,7 @@ No additional CSS import is required.
 | `highlightColor` | Base color for selection/hover overlays (defaults to `oklch(0.62 0.18 255)`). |
 | `guideColor` | Base color for guides (defaults to `oklch(0.63 0.26 29.23)`). |
 | `hoverHighlightEnabled` | Disables hover highlight and deselects on click when `false`. |
-| `persistOnReload` | Persists state in `localStorage` as `mesurer-state` when `true`. |
+| `persistOnReload` | Persists state in browser storage scoped to the current site when `true`. |
 
 ## Commands
 

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixelgrade Privacy Policy</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.6;
+        background: #ffffff;
+        color: #0f172a;
+      }
+
+      body {
+        margin: 0;
+        padding: 40px 20px;
+      }
+
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        flex: 0 0 auto;
+      }
+
+      h1,
+      h2 {
+        line-height: 1.2;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 2rem;
+      }
+
+      h2 {
+        margin: 32px 0 12px;
+        font-size: 1.125rem;
+      }
+
+      p,
+      li {
+        font-size: 0.98rem;
+      }
+
+      ul {
+        padding-left: 20px;
+      }
+
+      code {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          monospace;
+        font-size: 0.92em;
+      }
+
+      a {
+        color: #0f172a;
+      }
+
+      .muted {
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">
+        <img src="/favicon-48x48.png" alt="Pixelgrade logo" />
+        <h1>Pixelgrade Privacy Policy</h1>
+      </div>
+      <p class="muted">Last updated: April 14, 2026</p>
+
+      <p>
+        Pixelgrade is a browser extension that adds on-page measurement tools such
+        as selection overlays, guides, rulers, and tape measurements.
+      </p>
+
+      <h2>What Pixelgrade accesses</h2>
+      <p>
+        Pixelgrade runs on pages you open so it can inspect layout geometry and
+        render measurement overlays on top of those pages. It needs page access to
+        detect element bounds, spacing, and guide positions.
+      </p>
+
+      <h2>What Pixelgrade stores</h2>
+      <p>Pixelgrade stores extension state locally on your device, including:</p>
+      <ul>
+        <li>whether the extension is enabled or disabled,</li>
+        <li>guide positions, measurement overlays, and toolbar position,</li>
+        <li>page-specific overlay state scoped to the current site origin.</li>
+      </ul>
+      <p>
+        This data is stored using <code>chrome.storage.local</code>. When that API
+        is unavailable in a non-extension environment, the underlying library may
+        fall back to local browser storage for the current page.
+      </p>
+
+      <h2>What Pixelgrade does not do</h2>
+      <ul>
+        <li>Pixelgrade does not send your browsing data to a remote server.</li>
+        <li>Pixelgrade does not sell or share personal information.</li>
+        <li>Pixelgrade does not use analytics, ads, or tracking pixels.</li>
+        <li>Pixelgrade does not collect account credentials, payment data, or form submissions.</li>
+      </ul>
+
+      <h2>Data sharing</h2>
+      <p>
+        Pixelgrade does not share user data with third parties.
+      </p>
+
+      <h2>Data retention and control</h2>
+      <p>
+        Stored extension state remains on your device until you clear it by
+        disabling the extension, removing the extension, clearing browser storage,
+        or resetting the relevant page data.
+      </p>
+
+      <h2>Open-source attribution</h2>
+      <p>
+        Pixelgrade is built on the open-source <code>mesurer</code> package by
+        Julien Thibeaut and includes software made available under the MIT License.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Maintainer:
+        <a href="https://github.com/bahirHakimy">GitHub</a>
+        and
+        <a href="https://www.linkedin.com/in/bahir-hakimi/">LinkedIn</a>.
+      </p>
+    </main>
+  </body>
+</html>

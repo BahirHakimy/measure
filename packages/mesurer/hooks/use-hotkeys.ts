@@ -37,6 +37,16 @@ export const useHotkeys = (options: HotkeyOptions) => {
           options.onInteract()
         }
 
+        if (key === "t") {
+          options.setToolMode((prev) => (prev === "tape" ? "none" : "tape"))
+          options.onInteract()
+        }
+
+        if (key === "r") {
+          options.setToolMode((prev) => (prev === "ruler" ? "none" : "ruler"))
+          options.onInteract()
+        }
+
         if (key === "h") {
           options.setGuideOrientation("horizontal")
           options.onInteract()

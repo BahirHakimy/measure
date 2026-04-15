@@ -25,12 +25,16 @@ import { useMeasurerLocalState } from "./hooks/use-measurer-local-state";
 import { useMeasurerPointer } from "./hooks/use-measurer-pointer";
 import { useOverlayRefs } from "./hooks/use-overlay-refs";
 import { useResizeSync } from "./hooks/use-resize-sync";
+import { readPersistedValues, writePersistedValue } from "./persistence";
 import { MeasurerOverlay } from "./render/measurer-overlay";
+import { ensureMeasurerStyles } from "./style-inject";
+import { MESURER_STYLES } from "./styles.generated";
 import type {
   DistanceOverlay,
   Guide,
   Measurement,
   Rect,
+  TapeMeasurement,
   ToolMode,
 } from "./types";
 
@@ -39,10 +43,59 @@ type MeasurerProps = {
   guideColor?: string;
   hoverHighlightEnabled?: boolean;
   persistOnReload?: boolean;
+  portalContainer?: Element | DocumentFragment | null;
+  styleTarget?: Document | ShadowRoot | null;
 };
 
+type PersistedMeasurerState = {
+  version: number;
+  enabled: boolean;
+  toolMode: ToolMode;
+  guideOrientation: "vertical" | "horizontal";
+  guides: Guide[];
+  selectedGuideIds: string[];
+  measurements: Measurement[];
+  activeMeasurement: Measurement | null;
+  heldDistances: DistanceOverlay[];
+};
+
+type ToolbarPosition = {
+  x: number;
+  y: number;
+};
+
+type PersistedSnapshot = {
+  state: PersistedMeasurerState | null;
+  toolbarActive: boolean;
+  toolbarPosition: ToolbarPosition | null;
+};
+
+type MeasurerRuntimeProps = {
+  highlightColor: string;
+  guideColor: string;
+  hoverHighlightEnabled: boolean;
+  persistOnReload: boolean;
+  portalContainer: Element | DocumentFragment;
+  styleTarget: Document | ShadowRoot;
+};
+
+type MeasurerInnerProps = MeasurerRuntimeProps & {
+  initialSnapshot: PersistedSnapshot;
+};
+
+const PERSISTED_STATE_STORAGE_KEY = "mesurer-state";
 const TOOLBAR_VISIBILITY_STORAGE_KEY = "mesurer-toolbar-visibility";
 const TOOLBAR_POSITION_STORAGE_KEY = "mesurer-toolbar-position";
+const DEFAULT_PERSISTED_SNAPSHOT: PersistedSnapshot = {
+  state: null,
+  toolbarActive: true,
+  toolbarPosition: null,
+};
+
+function eventIncludesNode(event: Event, node: Node | null) {
+  if (!node) return false;
+  return event.composedPath().includes(node);
+}
 
 const subscribeHydration = () => () => {};
 const useHydrated = () =>
@@ -63,53 +116,80 @@ const stripDistance = (distance: DistanceOverlay): DistanceOverlay => ({
   elementRefB: undefined,
 });
 
-function MeasurerClient({
+function parsePersistedState(
+  value: string | null,
+): PersistedMeasurerState | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as PersistedMeasurerState;
+    if (!parsed || parsed.version !== 1) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function parseToolbarVisibility(value: string | null) {
+  if (!value) return true;
+
+  try {
+    const parsed = JSON.parse(value) as { visible?: boolean };
+    return typeof parsed.visible === "boolean" ? parsed.visible : true;
+  } catch {
+    return true;
+  }
+}
+
+function parseToolbarPosition(value: string | null): ToolbarPosition | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as { x?: number; y?: number };
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") {
+      return null;
+    }
+    return { x: parsed.x, y: parsed.y };
+  } catch {
+    return null;
+  }
+}
+
+async function loadPersistedSnapshot(persistOnReload: boolean) {
+  if (!persistOnReload) return DEFAULT_PERSISTED_SNAPSHOT;
+
+  const stored = await readPersistedValues([
+    PERSISTED_STATE_STORAGE_KEY,
+    TOOLBAR_VISIBILITY_STORAGE_KEY,
+    TOOLBAR_POSITION_STORAGE_KEY,
+  ]);
+
+  const state = parsePersistedState(stored[PERSISTED_STATE_STORAGE_KEY]);
+  const toolbarActive =
+    state?.toolMode && state.toolMode !== "none"
+      ? true
+      : parseToolbarVisibility(stored[TOOLBAR_VISIBILITY_STORAGE_KEY]);
+
+  return {
+    state,
+    toolbarActive,
+    toolbarPosition: parseToolbarPosition(stored[TOOLBAR_POSITION_STORAGE_KEY]),
+  } satisfies PersistedSnapshot;
+}
+
+function MeasurerInner({
   highlightColor,
   guideColor,
   hoverHighlightEnabled,
   persistOnReload,
-}: Required<MeasurerProps>) {
+  portalContainer,
+  initialSnapshot,
+}: MeasurerInnerProps) {
   const selectionRectRef = useRef<Rect | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const selectionAnimationCleanupTimeoutRef = useRef<number | null>(null);
   const suppressToolbarAutoHideUntilRef = useRef(0);
-
-  const persistedState = useMemo(() => {
-    if (!persistOnReload) return null;
-    const stored = window.localStorage.getItem("mesurer-state");
-    if (!stored) return null;
-    try {
-      const parsed = JSON.parse(stored) as {
-        version: number;
-        enabled: boolean;
-        toolMode: ToolMode;
-        guideOrientation: "vertical" | "horizontal";
-        guides: Guide[];
-        selectedGuideIds: string[];
-        measurements: Measurement[];
-        activeMeasurement: Measurement | null;
-        heldDistances: DistanceOverlay[];
-      };
-      if (!parsed || parsed.version !== 1) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  }, [persistOnReload]);
-
-  const initialToolbarActive = useMemo(() => {
-    if (!persistOnReload) return true;
-
-    try {
-      const stored = window.localStorage.getItem(TOOLBAR_VISIBILITY_STORAGE_KEY);
-      if (!stored) return true;
-
-      const parsed = JSON.parse(stored) as { visible?: boolean };
-      return typeof parsed.visible === "boolean" ? parsed.visible : true;
-    } catch {
-      return true;
-    }
-  }, [persistOnReload]);
+  const persistedState = initialSnapshot.state;
 
   const { overlayRef, selectedElementRef, hoverElementRef } = useOverlayRefs();
   const {
@@ -175,7 +255,7 @@ function MeasurerClient({
     initialGuides: persistedState?.guides ?? [],
     initialSelectedGuideIds: persistedState?.selectedGuideIds ?? [],
   });
-  const [toolbarActive, setToolbarActive] = useState(initialToolbarActive);
+  const [toolbarActive, setToolbarActive] = useState(initialSnapshot.toolbarActive);
   const { clearGuideDragHold, scheduleGuideDragHold } = useGuideDragHold();
   const [guidePreview, setGuidePreview] = useState<{
     orientation: "vertical" | "horizontal";
@@ -184,6 +264,12 @@ function MeasurerClient({
   const [guideOrientation, setGuideOrientation] = useState<
     "vertical" | "horizontal"
   >(persistedState?.guideOrientation ?? "vertical");
+  const [tapeMeasurement, setTapeMeasurement] = useState<TapeMeasurement | null>(
+    null,
+  );
+  const [rulerCursor, setRulerCursor] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
   const persistPayload = useMemo(() => {
     if (!persistOnReload) return null;
@@ -214,20 +300,11 @@ function MeasurerClient({
 
   useEffect(() => {
     if (!persistOnReload) return;
-    if (typeof window === "undefined") return;
     if (!persistPayload) return;
-    try {
-      window.localStorage.setItem("mesurer-state", persistPayload);
-    } catch {
-      // ignore storage errors
-    }
+    void writePersistedValue(PERSISTED_STATE_STORAGE_KEY, persistPayload);
 
     const handlePageHide = () => {
-      try {
-        window.localStorage.setItem("mesurer-state", persistPayload);
-      } catch {
-        // ignore storage errors
-      }
+      void writePersistedValue(PERSISTED_STATE_STORAGE_KEY, persistPayload);
     };
 
     window.addEventListener("pagehide", handlePageHide);
@@ -238,16 +315,10 @@ function MeasurerClient({
 
   useEffect(() => {
     if (!persistOnReload) return;
-    if (typeof window === "undefined") return;
-
-    try {
-      window.localStorage.setItem(
-        TOOLBAR_VISIBILITY_STORAGE_KEY,
-        JSON.stringify({ visible: toolbarActive }),
-      );
-    } catch {
-      // ignore storage errors
-    }
+    void writePersistedValue(
+      TOOLBAR_VISIBILITY_STORAGE_KEY,
+      JSON.stringify({ visible: toolbarActive }),
+    );
   }, [persistOnReload, toolbarActive]);
 
   const {
@@ -314,6 +385,8 @@ function MeasurerClient({
     setGuides([]);
     setSelectedGuideIds([]);
     setHeldDistances([]);
+    setTapeMeasurement(null);
+    setRulerCursor(null);
   }, [
     clearGuideDragHold,
     clearSelectionRect,
@@ -331,6 +404,8 @@ function MeasurerClient({
     setSelectedMeasurement,
     setSelectedMeasurements,
     setStart,
+    setTapeMeasurement,
+    setRulerCursor,
   ]);
 
   const removeSelectedGuides = useCallback(() => {
@@ -389,8 +464,7 @@ function MeasurerClient({
 
     const handlePointerDown = (event: globalThis.PointerEvent) => {
       if (performance.now() < suppressToolbarAutoHideUntilRef.current) return;
-      const toolbarNode = toolbarRef.current;
-      if (toolbarNode && toolbarNode.contains(event.target as Node)) return;
+      if (eventIncludesNode(event, toolbarRef.current)) return;
       setToolbarActive(false);
     };
 
@@ -555,6 +629,8 @@ function MeasurerClient({
     setHoverRect,
     setHoverElement,
     setHoverPointer,
+    setRulerCursor,
+    setTapeMeasurement,
     clearSelectionRect,
   });
 
@@ -632,6 +708,8 @@ function MeasurerClient({
         optionPairOverlay={optionPairOverlay}
         guideDistanceOverlay={guideDistanceOverlay}
         optionContainerLines={optionContainerLines}
+        rulerCursor={rulerCursor}
+        tapeMeasurement={tapeMeasurement}
         guides={guides}
         hoverGuide={hoverGuide}
         draggingGuideId={draggingGuideId}
@@ -653,6 +731,7 @@ function MeasurerClient({
         ref={toolbarRef}
         toolMode={toolMode}
         visible={toolbarActive}
+        initialPosition={initialSnapshot.toolbarPosition}
         persistKey={persistOnReload ? TOOLBAR_POSITION_STORAGE_KEY : null}
         setEnabled={setEnabledWithHistory}
         setToolMode={setToolModeWithHistory}
@@ -663,7 +742,54 @@ function MeasurerClient({
         onShow={showToolbar}
       />
     </div>,
-    document.body,
+    portalContainer,
+  );
+}
+
+function MeasurerClient({
+  highlightColor,
+  guideColor,
+  hoverHighlightEnabled,
+  persistOnReload,
+  portalContainer,
+  styleTarget,
+}: MeasurerRuntimeProps) {
+  const [initialSnapshot, setInitialSnapshot] = useState<PersistedSnapshot | null>(
+    () => (persistOnReload ? null : DEFAULT_PERSISTED_SNAPSHOT),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!persistOnReload) {
+      setInitialSnapshot(DEFAULT_PERSISTED_SNAPSHOT);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void loadPersistedSnapshot(persistOnReload).then((snapshot) => {
+      if (cancelled) return;
+      setInitialSnapshot(snapshot);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [persistOnReload]);
+
+  if (!initialSnapshot) return null;
+
+  return (
+    <MeasurerInner
+      highlightColor={highlightColor}
+      guideColor={guideColor}
+      hoverHighlightEnabled={hoverHighlightEnabled}
+      persistOnReload={persistOnReload}
+      portalContainer={portalContainer}
+      styleTarget={styleTarget}
+      initialSnapshot={initialSnapshot}
+    />
   );
 }
 
@@ -672,15 +798,28 @@ export default function Measurer({
   guideColor = "oklch(0.63 0.26 29.23)",
   hoverHighlightEnabled = true,
   persistOnReload = false,
+  portalContainer = document.body,
+  styleTarget = document,
 }: MeasurerProps) {
   const hydrated = useHydrated();
-  if (!hydrated) return null;
+  const resolvedStyleTarget = styleTarget ?? (typeof document !== "undefined" ? document : null);
+  const resolvedPortalContainer =
+    portalContainer ?? (typeof document !== "undefined" ? document.body : null);
+
+  useEffect(() => {
+    if (!resolvedStyleTarget) return;
+    ensureMeasurerStyles(MESURER_STYLES, resolvedStyleTarget);
+  }, [resolvedStyleTarget]);
+
+  if (!hydrated || !resolvedPortalContainer) return null;
   return (
     <MeasurerClient
       highlightColor={highlightColor}
       guideColor={guideColor}
       hoverHighlightEnabled={hoverHighlightEnabled}
       persistOnReload={persistOnReload}
+      portalContainer={resolvedPortalContainer}
+      styleTarget={resolvedStyleTarget ?? document}
     />
   );
 }

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import {
   forwardRef,
   memo,
@@ -9,16 +9,19 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-} from "react";
-import type { ToolMode } from "../types";
-import { cn } from "../utils";
+} from 'react';
+import { writePersistedValue } from '../persistence';
+import type { ToolMode } from '../types';
+import { cn } from '../utils';
 import {
   CaretDownIcon,
   CheckIcon,
   CursorIcon,
   MinusIcon,
   RulerIcon,
-} from "./icons";
+  TapeMeasureIcon,
+  ViewRulerIcon,
+} from './icons';
 
 type Point = {
   x: number;
@@ -28,11 +31,12 @@ type Point = {
 type ToolbarProps = {
   toolMode: ToolMode;
   visible: boolean;
+  initialPosition?: Point | null;
   persistKey?: string | null;
   setEnabled: Dispatch<SetStateAction<boolean>>;
   setToolMode: Dispatch<SetStateAction<ToolMode>>;
-  guideOrientation: "vertical" | "horizontal";
-  setGuideOrientation: Dispatch<SetStateAction<"vertical" | "horizontal">>;
+  guideOrientation: 'vertical' | 'horizontal';
+  setGuideOrientation: Dispatch<SetStateAction<'vertical' | 'horizontal'>>;
   onInteract: () => void;
   onHide: () => void;
   onShow: () => void;
@@ -42,6 +46,11 @@ const TOOLBAR_TOOLTIP_DELAY_MS = 800;
 const TOOLBAR_DRAG_SLOP = 6;
 const DEFAULT_TOOLBAR_POSITION: Point = { x: 16, y: 16 };
 
+function eventIncludesNode(event: Event, node: Node | null) {
+  if (!node) return false;
+  return event.composedPath().includes(node);
+}
+
 type ToolbarButtonProps = {
   id: string;
   active: boolean;
@@ -49,7 +58,7 @@ type ToolbarButtonProps = {
   shortcut?: string;
   onClick: () => void;
   tooltipVisible: boolean;
-  tooltipSide: "top" | "bottom";
+  tooltipSide: 'top' | 'bottom';
   onTooltipEnter: (id: string) => void;
   onTooltipLeave: (id: string) => void;
   children: ReactNode;
@@ -78,10 +87,10 @@ function ToolbarButton({
         aria-label={shortcut ? `${label} (${shortcut})` : label}
         title={shortcut ? `${label} (${shortcut})` : label}
         className={cn(
-          "flex size-8 items-center justify-center rounded-[8px] outline-none",
+          'flex size-8 items-center justify-center rounded-[8px] outline-none',
           active
-            ? "bg-[#0d99ff] text-white"
-            : "bg-transparent text-black hover:bg-black/4",
+            ? 'bg-[#0d99ff] text-white'
+            : 'bg-transparent text-black hover:bg-black/4',
         )}
         onClick={onClick}
       >
@@ -89,9 +98,9 @@ function ToolbarButton({
       </button>
       <span
         className={cn(
-          "pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] text-white transition-opacity duration-150 select-none",
-          tooltipSide === "top" ? "bottom-full mb-2" : "top-full mt-2",
-          tooltipVisible ? "opacity-100" : "opacity-0",
+          'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] text-white transition-opacity duration-150 select-none',
+          tooltipSide === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+          tooltipVisible ? 'opacity-100' : 'opacity-0',
         )}
       >
         {label}
@@ -152,31 +161,8 @@ function useToolbarTooltip() {
   return { visibleTooltipId, onTooltipEnter, onTooltipLeave, onToolbarLeave };
 }
 
-function readStoredPosition(
-  initialPosition: Point,
-  persistKey?: string | null,
-): Point {
-  if (!persistKey || typeof window === "undefined") return initialPosition;
-
-  try {
-    const stored = window.localStorage.getItem(persistKey);
-    if (!stored) return initialPosition;
-
-    const parsed = JSON.parse(stored) as { x?: number; y?: number };
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") {
-      return initialPosition;
-    }
-
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return initialPosition;
-  }
-}
-
 function useToolbarDrag(initialPosition: Point, persistKey?: string | null) {
-  const [position, setPosition] = useState(() =>
-    readStoredPosition(initialPosition, persistKey),
-  );
+  const [position, setPosition] = useState(initialPosition);
   const suppressClickRef = useRef(false);
   const detachListenersRef = useRef<(() => void) | null>(null);
   const dragRef = useRef({
@@ -248,19 +234,19 @@ function useToolbarDrag(initialPosition: Point, persistKey?: string | null) {
         current.didDrag = false;
         current.pointerId = -1;
 
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerEnd);
-        window.removeEventListener("pointercancel", handlePointerEnd);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerEnd);
+        window.removeEventListener('pointercancel', handlePointerEnd);
         detachListenersRef.current = null;
       };
 
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerEnd);
-      window.addEventListener("pointercancel", handlePointerEnd);
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerEnd);
+      window.addEventListener('pointercancel', handlePointerEnd);
       detachListenersRef.current = () => {
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerEnd);
-        window.removeEventListener("pointercancel", handlePointerEnd);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerEnd);
+        window.removeEventListener('pointercancel', handlePointerEnd);
       };
     },
     [position.x, position.y],
@@ -281,13 +267,8 @@ function useToolbarDrag(initialPosition: Point, persistKey?: string | null) {
   }, [initialPosition]);
 
   useEffect(() => {
-    if (!persistKey || typeof window === "undefined") return;
-
-    try {
-      window.localStorage.setItem(persistKey, JSON.stringify(position));
-    } catch {
-      // ignore storage errors
-    }
+    if (!persistKey) return;
+    void writePersistedValue(persistKey, JSON.stringify(position));
   }, [persistKey, position]);
 
   return { position, onPointerDown, onClickCapture, resetPosition };
@@ -297,6 +278,7 @@ function ToolbarComponent(
   {
     toolMode,
     visible,
+    initialPosition,
     persistKey,
     setEnabled,
     setToolMode,
@@ -309,39 +291,51 @@ function ToolbarComponent(
   ref: React.Ref<HTMLDivElement>,
 ) {
   const { position, onPointerDown, onClickCapture, resetPosition } =
-    useToolbarDrag(DEFAULT_TOOLBAR_POSITION, persistKey);
+    useToolbarDrag(initialPosition ?? DEFAULT_TOOLBAR_POSITION, persistKey);
   const { visibleTooltipId, onTooltipEnter, onTooltipLeave, onToolbarLeave } =
     useToolbarTooltip();
   const [guideMenuOpen, setGuideMenuOpen] = useState(false);
   const guideMenuRef = useRef<HTMLDivElement | null>(null);
   const guideMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const [activeMenuIndex, setActiveMenuIndex] = useState(0);
-  const [menuAlign, setMenuAlign] = useState<"left" | "right">("right");
+  const [menuAlign, setMenuAlign] = useState<'left' | 'right'>('right');
 
   const viewportHeight =
-    typeof window === "undefined" ? 0 : window.innerHeight || 0;
+    typeof window === 'undefined' ? 0 : window.innerHeight || 0;
   const nearTop = position.y < 56;
   const nearBottom = viewportHeight > 0 && position.y > viewportHeight - 56;
-  const tooltipSide: "top" | "bottom" =
-    nearTop && !nearBottom ? "bottom" : "top";
-  const menuSide: "top" | "bottom" = nearBottom ? "top" : "bottom";
+  const tooltipSide: 'top' | 'bottom' =
+    nearTop && !nearBottom ? 'bottom' : 'top';
+  const menuSide: 'top' | 'bottom' = nearBottom ? 'top' : 'bottom';
 
   const selectMode = useCallback(() => {
     setEnabled(true);
-    setToolMode((prev) => (prev === "select" ? "none" : "select"));
+    setToolMode((prev) => (prev === 'select' ? 'none' : 'select'));
     onInteract();
   }, [onInteract, setEnabled, setToolMode]);
 
   const guidesMode = useCallback(() => {
     setEnabled(true);
-    setToolMode((prev) => (prev === "guides" ? "none" : "guides"));
+    setToolMode((prev) => (prev === 'guides' ? 'none' : 'guides'));
+    onInteract();
+  }, [onInteract, setEnabled, setToolMode]);
+
+  const tapeMode = useCallback(() => {
+    setEnabled(true);
+    setToolMode((prev) => (prev === 'tape' ? 'none' : 'tape'));
+    onInteract();
+  }, [onInteract, setEnabled, setToolMode]);
+
+  const rulerMode = useCallback(() => {
+    setEnabled(true);
+    setToolMode((prev) => (prev === 'ruler' ? 'none' : 'ruler'));
     onInteract();
   }, [onInteract, setEnabled, setToolMode]);
 
   const selectGuideOrientation = useCallback(
-    (orientation: "vertical" | "horizontal") => {
+    (orientation: 'vertical' | 'horizontal') => {
       setEnabled(true);
-      setToolMode("guides");
+      setToolMode('guides');
       setGuideOrientation(orientation);
       onInteract();
       setGuideMenuOpen(false);
@@ -360,17 +354,16 @@ function ToolbarComponent(
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       if (rect.left < 8) {
-        setMenuAlign("left");
+        setMenuAlign('left');
         return;
       }
       if (rect.right > window.innerWidth - 8) {
-        setMenuAlign("right");
+        setMenuAlign('right');
       }
     });
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!guideMenuRef.current) return;
-      if (guideMenuRef.current.contains(event.target as Node)) return;
+      if (eventIncludesNode(event, guideMenuRef.current)) return;
       setGuideMenuOpen(false);
     };
 
@@ -379,237 +372,265 @@ function ToolbarComponent(
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       if (rect.left < 8) {
-        setMenuAlign("left");
+        setMenuAlign('left');
         return;
       }
       if (rect.right > window.innerWidth - 8) {
-        setMenuAlign("right");
+        setMenuAlign('right');
       }
     };
 
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('resize', handleResize);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('resize', handleResize);
     };
   }, [guideMenuOpen, guideOrientation]);
-
-  if (!visible) {
-    return (
-      <div
-        ref={ref}
-        className="pointer-events-auto absolute z-[90] rounded-[12px] bg-[#fff] p-1 outline outline-transparent shadow-[0px_0px_.5px_rgba(0,0,0,.18),0px_3px_8px_rgba(0,0,0,.1),0px_1px_3px_rgba(0,0,0,.1)]"
-        style={{ left: position.x, top: position.y }}
-        onPointerDown={onPointerDown}
-        onClickCapture={onClickCapture}
-        onMouseLeave={onToolbarLeave}
-        onDoubleClick={resetPosition}
-      >
-        <ToolbarButton
-          id="show-toolbar"
-          active={false}
-          label="Show controls"
-          onClick={onShow}
-          tooltipVisible={visibleTooltipId === "show-toolbar"}
-          tooltipSide={tooltipSide}
-          onTooltipEnter={onTooltipEnter}
-          onTooltipLeave={onTooltipLeave}
-        >
-          <RulerIcon size={18} className="text-[#0d99ff]" />
-        </ToolbarButton>
-      </div>
-    );
-  }
 
   return (
     <div
       ref={ref}
-      className="pointer-events-auto absolute z-[90] flex items-center gap-1 rounded-[12px] bg-[#fff] p-1 outline outline-transparent shadow-[0px_0px_.5px_rgba(0,0,0,.18),0px_3px_8px_rgba(0,0,0,.1),0px_1px_3px_rgba(0,0,0,.1)]"
-      style={{ left: position.x, top: position.y }}
+      className="pointer-events-auto absolute z-[90] flex items-center overflow-visible rounded-[12px] border border-ink-200 p-1 outline outline-transparent shadow-[0px_0px_.5px_rgba(0,0,0,.18),0px_3px_8px_rgba(0,0,0,.1),0px_1px_3px_rgba(0,0,0,.1)] transition"
+      style={{
+        left: position.x,
+        top: position.y,
+        backgroundColor: visible ? '#fff' : 'rgba(255,255,255,0.82)',
+        transition:
+          'background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+      }}
       onPointerDown={(event) => {
-        onInteract();
+        if (visible) onInteract();
         onPointerDown(event);
       }}
       onClickCapture={onClickCapture}
       onMouseLeave={onToolbarLeave}
       onDoubleClick={() => {
-        onInteract();
+        if (visible) onInteract();
         setGuideMenuOpen(false);
         resetPosition();
       }}
     >
       <ToolbarButton
-        id="hide-toolbar"
+        id="toggle-toolbar"
         active={false}
-        label="Hide controls"
+        label={visible ? 'Hide controls' : 'Show controls'}
         onClick={() => {
           setGuideMenuOpen(false);
-          onHide();
+          if (visible) {
+            onHide();
+            return;
+          }
+          onShow();
         }}
-        tooltipVisible={visibleTooltipId === "hide-toolbar"}
+        tooltipVisible={visibleTooltipId === 'toggle-toolbar'}
         tooltipSide={tooltipSide}
         onTooltipEnter={onTooltipEnter}
         onTooltipLeave={onTooltipLeave}
       >
-        <MinusIcon size={12} />
-      </ToolbarButton>
-      <ToolbarButton
-        id="select"
-        active={toolMode === "select"}
-        label="Select"
-        shortcut="S"
-        onClick={selectMode}
-        tooltipVisible={visibleTooltipId === "select"}
-        tooltipSide={tooltipSide}
-        onTooltipEnter={onTooltipEnter}
-        onTooltipLeave={onTooltipLeave}
-      >
-        <CursorIcon size={20} />
-      </ToolbarButton>
-      <ToolbarButton
-        id="guides"
-        active={toolMode === "guides"}
-        label="Guides"
-        shortcut="G"
-        onClick={guidesMode}
-        tooltipVisible={visibleTooltipId === "guides"}
-        tooltipSide={tooltipSide}
-        onTooltipEnter={onTooltipEnter}
-        onTooltipLeave={onTooltipLeave}
-      >
-        <RulerIcon
-          size={20}
-          className={cn(
-            guideOrientation === "vertical"
-              ? "rotate-[135deg]"
-              : "rotate-[45deg]",
-          )}
-        />
+        {visible ? (
+          <MinusIcon size={12} />
+        ) : (
+          <RulerIcon size={18} className="text-[#0d99ff]" />
+        )}
       </ToolbarButton>
       <div
-        className="group relative -ml-1 flex items-stretch"
-        ref={guideMenuRef}
-        onMouseEnter={() => onTooltipEnter("guide-menu")}
-        onMouseLeave={() => onTooltipLeave("guide-menu")}
+        className="flex items-center overflow-visible"
+        style={{
+          maxWidth: visible ? 220 : 0,
+          opacity: visible ? 1 : 0,
+          marginLeft: visible ? 4 : 0,
+          transform: visible ? 'translateX(0)' : 'translateX(-8px)',
+          transition:
+            'max-width 220ms ease, opacity 180ms ease, margin-left 220ms ease, transform 220ms ease',
+          pointerEvents: visible ? 'auto' : 'none',
+        }}
       >
-        <button
-          type="button"
-          aria-label="Guide orientation menu"
-          title="Guide orientation"
-          className={cn(
-            "flex h-8 w-4 items-center justify-center rounded-[6px] outline-none hover:bg-black/10",
-            guideMenuOpen ? "bg-black/10 text-black" : "text-black",
-          )}
-          onClick={() => {
-            onInteract();
-            setGuideMenuOpen((prev) => {
-              if (!prev) {
-                setActiveMenuIndex(guideOrientation === "horizontal" ? 0 : 1);
-              }
-              return !prev;
-            });
-          }}
+        <ToolbarButton
+          id="select"
+          active={toolMode === 'select'}
+          label="Select"
+          shortcut="S"
+          onClick={selectMode}
+          tooltipVisible={visibleTooltipId === 'select'}
+          tooltipSide={tooltipSide}
+          onTooltipEnter={onTooltipEnter}
+          onTooltipLeave={onTooltipLeave}
         >
-          <CaretDownIcon size={8} />
-        </button>
-        <span
-          className={cn(
-            "pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] text-white transition-opacity duration-150 select-none",
-            tooltipSide === "top" ? "bottom-full mb-2" : "top-full mt-2",
-            visibleTooltipId === "guide-menu" && !guideMenuOpen
-              ? "opacity-100"
-              : "opacity-0",
-          )}
+          <CursorIcon size={20} />
+        </ToolbarButton>
+        <ToolbarButton
+          id="tape"
+          active={toolMode === 'tape'}
+          label="Tape Measure"
+          shortcut="T"
+          onClick={tapeMode}
+          tooltipVisible={visibleTooltipId === 'tape'}
+          tooltipSide={tooltipSide}
+          onTooltipEnter={onTooltipEnter}
+          onTooltipLeave={onTooltipLeave}
         >
-          Orientation Guide
-        </span>
-        {guideMenuOpen ? (
-          <div
+          <TapeMeasureIcon size={20} />
+        </ToolbarButton>
+        <ToolbarButton
+          id="guides"
+          active={toolMode === 'guides'}
+          label="Guides"
+          shortcut="G"
+          onClick={guidesMode}
+          tooltipVisible={visibleTooltipId === 'guides'}
+          tooltipSide={tooltipSide}
+          onTooltipEnter={onTooltipEnter}
+          onTooltipLeave={onTooltipLeave}
+        >
+          <RulerIcon
+            size={20}
             className={cn(
-              "absolute z-[70] w-44 rounded-lg border border-ink-200 bg-white p-1 shadow-[0px_10px_30px_rgba(0,0,0,0.08)] outline-none focus:outline-none",
-              "flex flex-col gap-px",
-              menuSide === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
-              menuAlign === "left" ? "left-0" : "right-0",
+              guideOrientation === 'vertical'
+                ? 'rotate-[135deg]'
+                : 'rotate-[45deg]',
             )}
-            ref={guideMenuPanelRef}
-            role="menu"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              const key = event.key.toLowerCase();
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setActiveMenuIndex((prev) => (prev + 1) % 2);
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setActiveMenuIndex((prev) => (prev + 1) % 2);
-              }
-              if (event.key === "Enter") {
-                event.preventDefault();
-                selectGuideOrientation(
-                  activeMenuIndex === 0 ? "horizontal" : "vertical",
-                );
-              }
-              if (key === "h") {
-                event.preventDefault();
-                selectGuideOrientation("horizontal");
-              }
-              if (key === "v") {
-                event.preventDefault();
-                selectGuideOrientation("vertical");
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setGuideMenuOpen(false);
-              }
+          />
+        </ToolbarButton>
+        <div
+          className="group relative -ml-1 flex items-stretch"
+          ref={guideMenuRef}
+          onMouseEnter={() => onTooltipEnter('guide-menu')}
+          onMouseLeave={() => onTooltipLeave('guide-menu')}
+        >
+          <button
+            type="button"
+            aria-label="Guide orientation menu"
+            title="Guide orientation"
+            className={cn(
+              'flex h-8 w-4 items-center justify-center rounded-[6px] outline-none hover:bg-black/10',
+              guideMenuOpen ? 'bg-black/10 text-black' : 'text-black',
+            )}
+            onClick={() => {
+              onInteract();
+              setGuideMenuOpen((prev) => {
+                if (!prev) {
+                  setActiveMenuIndex(guideOrientation === 'horizontal' ? 0 : 1);
+                }
+                return !prev;
+              });
             }}
           >
-            <button
-              type="button"
+            <CaretDownIcon size={8} />
+          </button>
+          <span
+            className={cn(
+              'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] text-white transition-opacity duration-150 select-none',
+              tooltipSide === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+              visibleTooltipId === 'guide-menu' && !guideMenuOpen
+                ? 'opacity-100'
+                : 'opacity-0',
+            )}
+          >
+            Orientation Guide
+          </span>
+          {guideMenuOpen ? (
+            <div
               className={cn(
-                "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]",
-                activeMenuIndex === 0 || guideOrientation === "horizontal"
-                  ? "bg-[#0d99ff] text-white"
-                  : "text-ink-700 hover:bg-[#0d99ff] hover:text-white",
+                'absolute z-[70] w-44 rounded-lg border border-ink-200 bg-white p-1 shadow-[0px_10px_30px_rgba(0,0,0,0.08)] outline-none focus:outline-none',
+                'flex flex-col gap-px',
+                menuSide === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2',
+                menuAlign === 'left' ? 'left-0' : 'right-0',
               )}
-              onClick={() => selectGuideOrientation("horizontal")}
+              ref={guideMenuPanelRef}
+              role="menu"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                const key = event.key.toLowerCase();
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setActiveMenuIndex((prev) => (prev + 1) % 2);
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setActiveMenuIndex((prev) => (prev + 1) % 2);
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  selectGuideOrientation(
+                    activeMenuIndex === 0 ? 'horizontal' : 'vertical',
+                  );
+                }
+                if (key === 'h') {
+                  event.preventDefault();
+                  selectGuideOrientation('horizontal');
+                }
+                if (key === 'v') {
+                  event.preventDefault();
+                  selectGuideOrientation('vertical');
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setGuideMenuOpen(false);
+                }
+              }}
             >
-              <CheckIcon
-                size={12}
+              <button
+                type="button"
                 className={cn(
-                  guideOrientation === "horizontal"
-                    ? "opacity-100"
-                    : "opacity-0",
+                  'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]',
+                  activeMenuIndex === 0 || guideOrientation === 'horizontal'
+                    ? 'bg-[#0d99ff] text-white'
+                    : 'text-ink-700 hover:bg-[#0d99ff] hover:text-white',
                 )}
-              />
-              <MinusIcon size={12} />
-              <span className="flex-1">Horizontal</span>
-              <span>H</span>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]",
-                activeMenuIndex === 1 || guideOrientation === "vertical"
-                  ? "bg-[#0d99ff] text-white"
-                  : "text-ink-700 hover:bg-[#0d99ff] hover:text-white",
-              )}
-              onClick={() => selectGuideOrientation("vertical")}
-            >
-              <CheckIcon
-                size={12}
+                onClick={() => selectGuideOrientation('horizontal')}
+              >
+                <CheckIcon
+                  size={12}
+                  className={cn(
+                    guideOrientation === 'horizontal'
+                      ? 'opacity-100'
+                      : 'opacity-0',
+                  )}
+                />
+                <MinusIcon size={12} />
+                <span className="flex-1">Horizontal</span>
+                <span>H</span>
+              </button>
+              <button
+                type="button"
                 className={cn(
-                  guideOrientation === "vertical" ? "opacity-100" : "opacity-0",
+                  'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]',
+                  activeMenuIndex === 1 || guideOrientation === 'vertical'
+                    ? 'bg-[#0d99ff] text-white'
+                    : 'text-ink-700 hover:bg-[#0d99ff] hover:text-white',
                 )}
-              />
-              <MinusIcon size={12} className="rotate-90" />
-              <span className="flex-1">Vertical</span>
-              <span>V</span>
-            </button>
-          </div>
-        ) : null}
+                onClick={() => selectGuideOrientation('vertical')}
+              >
+                <CheckIcon
+                  size={12}
+                  className={cn(
+                    guideOrientation === 'vertical'
+                      ? 'opacity-100'
+                      : 'opacity-0',
+                  )}
+                />
+                <MinusIcon size={12} className="rotate-90" />
+                <span className="flex-1">Vertical</span>
+                <span>V</span>
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <ToolbarButton
+          id="ruler-view"
+          active={toolMode === 'ruler'}
+          label="Rulers"
+          shortcut="R"
+          onClick={rulerMode}
+          tooltipVisible={visibleTooltipId === 'ruler-view'}
+          tooltipSide={tooltipSide}
+          onTooltipEnter={onTooltipEnter}
+          onTooltipLeave={onTooltipLeave}
+        >
+          <ViewRulerIcon size={20} />
+        </ToolbarButton>
       </div>
     </div>
   );

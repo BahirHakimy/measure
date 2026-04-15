@@ -18,10 +18,13 @@ import type {
   InspectMeasurement,
   Measurement,
   Rect,
+  TapeMeasurement,
   ToolMode,
 } from "../types";
 import { formatValue } from "../utils";
 import { DistanceOverlayItem } from "./distance-overlay-item";
+import { RulerOverlay } from "./ruler-overlay";
+import { TapeOverlay } from "./tape-overlay";
 
 type GuidePreview = {
   orientation: "vertical" | "horizontal";
@@ -58,6 +61,8 @@ type MeasurerOverlayProps = {
   optionPairOverlay: DistanceOverlay | null;
   guideDistanceOverlay: DistanceOverlay | null;
   optionContainerLines: OptionContainerLines | null;
+  rulerCursor: { x: number; y: number } | null;
+  tapeMeasurement: TapeMeasurement | null;
   guides: Guide[];
   hoverGuide: Guide | null;
   draggingGuideId: string | null;
@@ -107,6 +112,8 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
   optionPairOverlay,
   guideDistanceOverlay,
   optionContainerLines,
+  rulerCursor,
+  tapeMeasurement,
   guides,
   hoverGuide,
   draggingGuideId,
@@ -128,7 +135,9 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
       className={`absolute inset-0 ${
         enabled && toolMode !== "none"
           ? `pointer-events-auto ${
-              guidesEnabled
+              toolMode === "ruler" || toolMode === "tape"
+                ? "cursor-crosshair"
+                : guidesEnabled
                 ? hoverGuide || draggingGuideId
                   ? "cursor-default"
                   : "cursor-crosshair"
@@ -141,7 +150,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerLeave}
     >
-      {!guidesEnabled
+      {toolMode === "select"
         ? displayedMeasurements.map((measurement, index) => (
             <MeasurementBox
               key={measurement.id}
@@ -153,7 +162,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
           ))
         : null}
 
-      {!guidesEnabled && activeRect && isDragging ? (
+      {toolMode === "select" && activeRect && isDragging ? (
         <>
           <div
             className="pointer-events-none absolute"
@@ -194,7 +203,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         </>
       ) : null}
 
-      {!guidesEnabled && hoverRectToShow ? (
+      {toolMode === "select" && hoverRectToShow ? (
         <div
           className="pointer-events-none absolute"
           style={{
@@ -232,7 +241,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         </div>
       ) : null}
 
-      {guidesEnabled && guidePreview ? (
+      {toolMode === "guides" && guidePreview ? (
         <div
           className="pointer-events-none absolute"
           style={
@@ -274,7 +283,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         </div>
       ) : null}
 
-      {!guidesEnabled
+      {toolMode === "select"
         ? displayedSelectedMeasurements.map((measurement, index) => (
             <SelectedMeasurementBox
               key={measurement.id}
@@ -295,7 +304,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         />
       ))}
 
-      {!guidesEnabled && altPressed && optionPairOverlay ? (
+      {toolMode === "select" && altPressed && optionPairOverlay ? (
         <DistanceOverlayItem
           key={`option-${optionPairOverlay.id}`}
           distance={optionPairOverlay}
@@ -303,7 +312,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         />
       ) : null}
 
-      {guidesEnabled && altPressed && guideDistanceOverlay ? (
+      {toolMode === "guides" && altPressed && guideDistanceOverlay ? (
         <DistanceOverlayItem
           key={`guide-preview-${guideDistanceOverlay.id}`}
           distance={guideDistanceOverlay}
@@ -311,7 +320,7 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         />
       ) : null}
 
-      {!guidesEnabled && altPressed && optionContainerLines ? (
+      {toolMode === "select" && altPressed && optionContainerLines ? (
         <>
           {optionContainerLines.top.value > 0 ? (
             <>
@@ -421,7 +430,8 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
         </>
       ) : null}
 
-      {guides.map((guide) => {
+      {toolMode === "guides"
+        ? guides.map((guide) => {
         const isSelected = selectedGuideIds.includes(guide.id);
         const isHovered = hoverGuide?.id === guide.id;
         const strokeWidth = isSelected || isHovered ? 2 : 1;
@@ -476,7 +486,14 @@ export const MeasurerOverlay = memo(function MeasurerOverlay({
             />
           </div>
         );
-      })}
+          })
+        : null}
+
+      {toolMode === "tape" && tapeMeasurement ? (
+        <TapeOverlay measurement={tapeMeasurement} />
+      ) : null}
+
+      {toolMode === "ruler" ? <RulerOverlay cursor={rulerCursor} /> : null}
     </div>
   );
 });

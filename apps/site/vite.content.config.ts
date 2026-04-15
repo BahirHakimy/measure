@@ -12,7 +12,7 @@ export default defineConfig({
     emptyOutDir: false,
     lib: {
       entry: resolve(__dirname, "src/content.tsx"),
-      name: "MesurerContent",
+      name: "PixelgradeContent",
       formats: ["iife"],
       fileName: () => "content.js",
     },

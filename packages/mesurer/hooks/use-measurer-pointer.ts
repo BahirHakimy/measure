@@ -20,9 +20,10 @@ import type {
   Measurement,
   Point,
   Rect,
+  TapeMeasurement,
   ToolMode,
 } from "../types"
-import { createId } from "../utils"
+import { createId, createTapeMeasurement } from "../utils"
 
 type GuidePreview = {
   orientation: "vertical" | "horizontal"
@@ -76,7 +77,17 @@ type UseMeasurerPointerArgs = {
   setHoverRect: (value: SetStateAction<Rect | null>) => void
   setHoverElement: (value: HTMLElement | null) => void
   setHoverPointer: (value: SetStateAction<Point | null>) => void
+  setRulerCursor: (value: SetStateAction<Point | null>) => void
+  setTapeMeasurement: (value: SetStateAction<TapeMeasurement | null>) => void
   clearSelectionRect: () => void
+}
+
+function eventIncludesNode(
+  event: ReactPointerEvent<HTMLDivElement>,
+  node: Node | null
+) {
+  if (!node) return false
+  return event.nativeEvent.composedPath().includes(node)
 }
 
 export const useMeasurerPointer = ({
@@ -121,6 +132,8 @@ export const useMeasurerPointer = ({
   setHoverRect,
   setHoverElement,
   setHoverPointer,
+  setRulerCursor,
+  setTapeMeasurement,
   clearSelectionRect,
 }: UseMeasurerPointerArgs) => {
   const hoverFrameRef = useRef<number | null>(null)
@@ -198,12 +211,31 @@ export const useMeasurerPointer = ({
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const commit = createActionCommit()
-      const toolbarNode = toolbarRef.current
-      if (toolbarNode && toolbarNode.contains(event.target as Node)) return
+      if (eventIncludesNode(event, toolbarRef.current)) return
       if (!enabled || event.button !== 0) return
       if (toolMode === "none") return
       clearSelectionRect()
       const point = { x: event.clientX, y: event.clientY }
+
+      if (toolMode === "ruler") {
+        setRulerCursor(point)
+        return
+      }
+
+      if (toolMode === "tape") {
+        setHoverRect(null)
+        setHoverElement(null)
+        setHoverPointer(null)
+        setGuidePreview(null)
+        setRulerCursor(null)
+        setTapeMeasurement(createTapeMeasurement(point, point))
+        setStart(point)
+        setEnd(point)
+        setIsDragging(true)
+        event.currentTarget.setPointerCapture(event.pointerId)
+        return
+      }
+
       shiftDragRef.current = event.shiftKey
       shiftToggleElementRef.current = event.shiftKey
         ? (getSelectedMeasurementHit({
@@ -279,6 +311,8 @@ export const useMeasurerPointer = ({
       setIsDragging,
       setSelectedGuideIds,
       setStart,
+      setRulerCursor,
+      setTapeMeasurement,
       snapGuidesEnabled,
       toolMode,
       toolbarRef,
@@ -287,8 +321,7 @@ export const useMeasurerPointer = ({
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const toolbarNode = toolbarRef.current
-      if (toolbarNode && toolbarNode.contains(event.target as Node)) return
+      if (eventIncludesNode(event, toolbarRef.current)) return
       if (!enabled) return
       if (toolMode === "none") {
         if (hoverHighlightEnabled) {
@@ -297,10 +330,34 @@ export const useMeasurerPointer = ({
         }
         setHoverPointer(null)
         setGuidePreview(null)
+        setRulerCursor(null)
         return
       }
 
       const point = { x: event.clientX, y: event.clientY }
+
+      if (toolMode === "ruler") {
+        setHoverRect(null)
+        setHoverElement(null)
+        setHoverPointer(null)
+        setGuidePreview(null)
+        setRulerCursor(point)
+        return
+      }
+
+      if (toolMode === "tape") {
+        setHoverRect(null)
+        setHoverElement(null)
+        setHoverPointer(null)
+        setGuidePreview(null)
+        setRulerCursor(null)
+        if (start) {
+          setEnd(point)
+          setTapeMeasurement(createTapeMeasurement(start, point))
+        }
+        return
+      }
+
       if (event.altKey !== altPressed) {
         setAltPressed(event.altKey)
       }
@@ -392,6 +449,8 @@ export const useMeasurerPointer = ({
       setHoverPointer,
       setHoverRect,
       setIsDragging,
+      setRulerCursor,
+      setTapeMeasurement,
       start,
       toolMode,
       toolbarRef,
@@ -403,8 +462,7 @@ export const useMeasurerPointer = ({
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const commit = createActionCommit()
-      const toolbarNode = toolbarRef.current
-      if (toolbarNode && toolbarNode.contains(event.target as Node)) return
+      if (eventIncludesNode(event, toolbarRef.current)) return
       if (!enabled) return
       clearGuideDragHold()
       if (toolMode === "none") {
@@ -414,6 +472,14 @@ export const useMeasurerPointer = ({
         return
       }
       const point = { x: event.clientX, y: event.clientY }
+
+      if (toolMode === "ruler") {
+        setRulerCursor(point)
+        setStart(null)
+        setEnd(null)
+        setIsDragging(false)
+        return
+      }
 
       const resetDragState = () => {
         setStart(null)
@@ -430,6 +496,14 @@ export const useMeasurerPointer = ({
 
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+
+      if (toolMode === "tape") {
+        if (start) {
+          setTapeMeasurement(createTapeMeasurement(start, point))
+        }
+        resetDragState()
+        return
       }
 
       if (draggingGuideId) {
@@ -625,6 +699,8 @@ export const useMeasurerPointer = ({
       setSelectedMeasurements,
       setSelectionOriginRect,
       setStart,
+      setRulerCursor,
+      setTapeMeasurement,
       snapEnabled,
       start,
       toolMode,
@@ -639,12 +715,14 @@ export const useMeasurerPointer = ({
     setIsDragging(false)
     setDraggingGuideId(null)
     setGuidePreview(null)
+    setRulerCursor(null)
   }, [
     clearGuideDragHold,
     setDraggingGuideId,
     setEnd,
     setGuidePreview,
     setIsDragging,
+    setRulerCursor,
     setStart,
   ])
 

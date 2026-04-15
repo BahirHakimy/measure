@@ -1,25 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "Measure Local",
-  "description": "Inspect spacing and alignment on localhost. Based on mesurer by Julien Thibeaut (ibelick).",
+  "name": "Pixelgrade",
+  "description": "Inspect spacing, rulers, and guides on any page.",
   "version": "0.0.3",
-  "action": {
-    "default_title": "Measure Local",
-    "default_popup": "index.html"
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+  "icons": {
+    "16": "favicon-16x16.png",
+    "32": "favicon-32x32.png",
+    "48": "favicon-48x48.png",
+    "128": "android-chrome-192x192.png"
   },
-  "permissions": ["storage", "tabs"],
-  "content_scripts": [
-    {
-      "matches": [
-        "http://localhost/*",
-        "http://127.0.0.1/*",
-        "http://0.0.0.0/*",
-        "https://localhost/*",
-        "https://127.0.0.1/*",
-        "https://0.0.0.0/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ]
+  "action": {
+    "default_icon": {
+      "16": "favicon-16x16.png",
+      "32": "favicon-32x32.png",
+      "48": "favicon-48x48.png"
+    },
+    "default_title": "Pixelgrade",
+    "default_popup": "index.html"
+  }
 }

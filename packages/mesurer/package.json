@@ -1,7 +1,7 @@
 {
   "name": "mesurer",
   "version": "0.0.3",
-  "description": "Measure and align everything on localhost.",
+  "description": "Measure and align everything on any page.",
   "license": "MIT",
   "author": "Julien Thibeaut",
   "type": "module",

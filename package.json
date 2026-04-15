@@ -1,6 +1,6 @@
 {
-  "name": "mesurer",
-  "description": "Measure and align everything on localhost.",
+  "name": "pixelgrade",
+  "description": "Inspect spacing, rulers, and guides on any page.",
   "license": "MIT",
   "private": true,
   "workspaces": [
@@ -12,6 +12,7 @@
     "build:extension": "corepack pnpm --filter ./apps/site build",
     "build:site": "corepack pnpm --filter ./apps/site build",
     "build:pkg": "corepack pnpm --filter ./packages/mesurer build",
+    "package:extension": "corepack pnpm --filter ./apps/site package",
     "dev": "corepack pnpm -r dev",
     "dev:extension": "corepack pnpm --filter ./apps/site dev",
     "dev:site": "corepack pnpm --filter ./apps/site dev",

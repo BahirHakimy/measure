@@ -23,7 +23,7 @@ type MeasurerProps = {
 - `highlightColor`: Base color for selection/hover overlays (defaults to `oklch(0.62 0.18 255)`).
 - `guideColor`: Base color for guides (defaults to `oklch(0.63 0.26 29.23)`).
 - `hoverHighlightEnabled`: When `false`, hover highlight is disabled and clicking a selected item deselects it.
-- `persistOnReload`: When `true`, persists guides, measurements, and tool state to `localStorage` under `mesurer-state`.
+- `persistOnReload`: When `true`, persists guides, measurements, and tool state in browser storage scoped to the current site.
 
 ## Commands & Shortcuts
 

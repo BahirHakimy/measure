@@ -3,6 +3,14 @@ export type Point = {
   y: number
 }
 
+export type TapeMeasurement = {
+  start: Point
+  end: Point
+  deltaX: number
+  deltaY: number
+  length: number
+}
+
 export type Rect = {
   left: number
   top: number
@@ -87,4 +95,4 @@ export type OptionTarget = {
   guideId?: string
 }
 
-export type ToolMode = "none" | "select" | "guides"
+export type ToolMode = "none" | "select" | "guides" | "tape" | "ruler"

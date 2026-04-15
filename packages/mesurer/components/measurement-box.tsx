@@ -94,7 +94,7 @@ export const MeasurementBox = memo(function MeasurementBox({
         ) : null}
       </div>
       <MeasureTag
-        className="-translate-x-1/2 bg-ink-900/90"
+        className="-translate-x-1/2 bg-[#0f172af2]"
         style={{
           left: displayRect.left + displayRect.width / 2,
           top: displayRect.top + displayRect.height + labelOffset,
